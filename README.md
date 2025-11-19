@@ -87,7 +87,7 @@ RAW_FILE_NAME=nyctaxi_raw.json
 
 ---
 
-### Start Kafka services
+### Start Kafka and Spark services
 
 ```bash
 docker compose up -d
@@ -111,7 +111,7 @@ notebooks/nyctaxistream/NB_consume_spark_nyctaxistream.ipynb
 
 ---
 
-## Stop docker services
+### Stop Kafka and Spark services
 
 ```bash
 	docker compose down
