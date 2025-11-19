@@ -89,14 +89,6 @@ RAW_FILE_NAME=nyctaxi_raw.json
 
 ### Start Kafka services
 
-If using Makefile:
-
-```bash
-make start
-```
-
-Without Makefile:
-
 ```bash
 docker compose up -d
 ```
@@ -119,13 +111,9 @@ notebooks/nyctaxistream/NB_consume_spark_nyctaxistream.ipynb
 
 ---
 
-## Suggested Makefile Targets
+## Stop docker services
 
-```makefile
-start:
-	docker compose up -d
-
-stop:
+```bash
 	docker compose down
 ```
 
