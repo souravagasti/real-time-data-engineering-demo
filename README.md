@@ -1,5 +1,12 @@
 # Real-Time NYC Taxi Streaming with Kafka & Spark
 
+![Python](https://img.shields.io/badge/python-3.10+-blue.svg)
+![Spark](https://img.shields.io/badge/spark-3.5-orange.svg)
+![Kafka](https://img.shields.io/badge/kafka-streaming-black.svg)
+![Delta Lake](https://img.shields.io/badge/delta-lake-0A9EDC.svg)
+![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)
+![Repo](https://img.shields.io/github/stars/souravagasti/real-time-data-engineering-demo?style=social)
+
 This repository is a hands-on playground for learning real-time data engineering using:
 
 - Apache Kafka for event ingestion  
