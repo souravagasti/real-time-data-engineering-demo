@@ -1,0 +1,15 @@
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "realtime_data"
+version = "0.1.0"
+dependencies = [
+    "pyspark==3.5.0",
+    "kafka-python==2.2.15",
+    "python-dotenv==1.1.1"
+]
+
+[tool.setuptools]
+packages = ["utils"]   # Explicitly include only utils as a package

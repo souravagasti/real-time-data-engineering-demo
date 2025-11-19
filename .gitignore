@@ -1,0 +1,41 @@
+# Python
+__pycache__/
+utils/__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+dist/
+build/
+.env
+.venv/
+venv*/
+*.egg
+
+# VSCode
+.vscode/
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb_save
+
+# Spark
+derby.log
+metastore_db/
+spark-warehouse/
+
+# Local data files
+data/**/*.parquet
+data/**/*.csv
+data/**/*.json
+data/**/*.delta/
+*.delta/
+
+# Docker
+*.pid
+
+# OS
+.DS_Store
+Thumbs.db
+
+realtime_data.egg-info/
