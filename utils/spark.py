@@ -16,7 +16,7 @@ from pyspark.sql import SparkSession, DataFrame
 from pyspark.sql.functions import from_json, col, lit
 from delta.tables import DeltaTable
 from dotenv import load_dotenv
-from functools import wraps
+from functools import wraps,lru_cache
 from types import SimpleNamespace
 import os, uuid
 
@@ -60,7 +60,7 @@ def with_spark_vars(func):
         return func(sv, *args, **kwargs)
     return wrapper
 
-
+@lru_cache(maxsize=1)
 def start_spark_session() -> SparkSession:
     """
     Create and start a local Spark session configured for:
@@ -163,7 +163,6 @@ def read_from_kafka(
 
     return parsed_df
 
-
 def write_spark_stream(
     parsed_df: DataFrame,
     spark: SparkSession,
@@ -251,14 +250,19 @@ def write_spark_stream(
                 parsed_df = parsed_df.withColumn(col_name, lit(None))
 
             def merge_batch(df: DataFrame, epoch_id: int):
-                merge_condition = " AND ".join([f"target.{k}=source.{k}" for k in merge_keys])
+                print("🔥 MERGE BATCH CALLED. ROWS:", df.count(), " EPOCH:", epoch_id)
+                try:
+                    merge_condition = " AND ".join([f"target.{k}=source.{k}" for k in merge_keys])
 
-                (
-                    delta_table.alias("target")
-                    .merge(df.alias("source"), merge_condition)
-                    .whenNotMatchedInsertAll()
-                    .execute()
-                )
+                    (
+                        delta_table.alias("target")
+                        .merge(df.alias("source"), merge_condition)
+                        .whenNotMatchedInsertAll()
+                        .execute()
+                    )
+                except Exception as e:
+                    print("❌ foreachBatch FAILED:", e)
+                    raise e  # <-- THIS forces Spark to crash the query
 
             query = (
                 parsed_df.writeStream

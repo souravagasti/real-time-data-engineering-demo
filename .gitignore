@@ -25,11 +25,8 @@ metastore_db/
 spark-warehouse/
 
 # Local data files
-data/**/*.parquet
-data/**/*.csv
-data/**/*.json
-data/**/*.delta/
-*.delta/
+data/nyctaxi
+*.crc
 
 # Docker
 *.pid

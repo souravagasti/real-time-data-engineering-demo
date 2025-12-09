@@ -70,7 +70,7 @@ async def generate_clickstream_async(num_events: int, latency: float = 0.1):
         await asyncio.sleep(latency)  # Wait for "latency" seconds before generating the next event
         current_time += timedelta(seconds=random.randint(1, 300))
 
-async def generate_nyctaxistream_async(num_events: int, latency: float = 0.1, **vars):
+async def generate_nyctaxistream_async(num_events: int = 1, latency: float = 0.1, **vars):
     """
     Asynchronously generate synthetic NYC taxi trip events.
 
@@ -112,23 +112,26 @@ async def generate_nyctaxistream_async(num_events: int, latency: float = 0.1, **
       for batch tests / Delta ingestion.
     """
 
-    import random
+    import random, asyncio
     from datetime import datetime, timedelta
-    import asyncio
-    
-    # NYC Taxi Stream Data Generation Placeholders
-    hvfhs_license_num = vars.get("hvfhs_license_num", ["HV" + str(i).zfill(5) for i in range(10)])
-    dispatching_base_num = vars.get("dispatching_base_num", ['B03404', 'B03406', 'B02510', 'B02764', 'B03288'])
-    originating_base_num = vars.get("originating_base_num", ['B03404', 'B03406', 'B02510', 'B02764', None])
-    PULocationID = vars.get("PULocationID", list(range(1, 265)))
-    DOLocationID = vars.get("DOLocationID", list(range(1, 265)))
-    trip_miles = vars.get("trip_miles", [round(random.uniform(0.1, 30.0), 2) for _ in range(10)])
-    trip_time = vars.get("trip_time", [random.randint(60, 7200) for _ in range(10)])
-    request_datetime = vars.get("request_datetime", [datetime(2025, 1, 1) + timedelta(seconds=random.randint(0, 86400)) for _ in range(10)])
-    on_scene_datetime = vars.get("on_scene_datetime", [req + timedelta(seconds=random.randint(0, 1800)) for req in request_datetime])
-    pickup_datetime = vars.get("pickup_datetime", [onscene + timedelta(seconds=random.randint(0, 1800)) for onscene in on_scene_datetime])
-    dropoff_datetime = vars.get("dropoff_datetime", [pickup + timedelta(seconds=random.randint(60, 7200)) for pickup in pickup_datetime])
+    from pyspark.sql.functions import to_timestamp
 
+    try:
+        hvfhs_license_num = vars.get("hvfhs_license_num", ["HV" + str(i).zfill(5) for i in range(10)])
+        dispatching_base_num = vars.get("dispatching_base_num", ['B03404', 'B03406', 'B02510', 'B02764', 'B03288'])
+        originating_base_num = vars.get("originating_base_num", ['B03404', 'B03406', 'B02510', 'B02764', None])
+        PULocationID = vars.get("PULocationID", list(range(1, 265)))
+        DOLocationID = vars.get("DOLocationID", list(range(1, 265)))
+        trip_miles = vars.get("trip_miles", [round(random.uniform(0.1, 30.0), 2) for _ in range(10)])
+        trip_time = vars.get("trip_time", [random.randint(60, 7200) for _ in range(10)])
+        request_datetime = vars.get("request_datetime", [(datetime(2025, 1, 1) + timedelta(seconds=random.randint(0, 86400))) for _ in range(10)])
+        on_scene_datetime = vars.get("on_scene_datetime", [req + timedelta(seconds=random.randint(0, 1800)) for req in request_datetime])
+        pickup_datetime = vars.get("pickup_datetime", [onscene + timedelta(seconds=random.randint(0, 1800)) for onscene in on_scene_datetime])
+        dropoff_datetime = vars.get("dropoff_datetime", [pickup + timedelta(seconds=random.randint(60, 7200)) for pickup in pickup_datetime])
+
+    except Exception as e:
+        raise e
+    
     for _ in range(num_events):
         event = {
             "hvfhs_license_num": random.choice(hvfhs_license_num),
@@ -146,3 +149,24 @@ async def generate_nyctaxistream_async(num_events: int, latency: float = 0.1, **
         yield event
         await asyncio.sleep(latency)
 
+async def generate_locationid_temperature_async(num_events: int = 1, latency: float = 0.1, **vars):
+
+    import random, asyncio
+    from datetime import datetime, timedelta
+
+    try:
+        locationId = vars.get("locationId",list(range(1,265)))
+        temperature = vars.get("temperature",list(range(10,30)))
+        record_datetime = vars.get("record_datetime",[datetime(2025,1,1) + timedelta(seconds = random.randint(0,86400)) for _ in range(10)])
+    except Exception as e:
+        raise e
+    
+    for _ in range(num_events):
+        event = {
+            "locationId": random.choice(locationId),
+            "temperature": random.choice(temperature),
+            "record_datetime": random.choice(record_datetime).strftime('%Y-%m-%d %H:%M:%S')
+        }
+        
+        yield event
+        await asyncio.sleep(latency)

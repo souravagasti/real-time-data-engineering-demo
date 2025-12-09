@@ -1,9 +1,7 @@
+import asyncio,json,time,os
 from kafka import KafkaProducer
 from utils.kafka_admin import KafkaAdmin
-import asyncio
-import json
 from dotenv import load_dotenv
-import os
 from functools import wraps
 from types import SimpleNamespace
 
@@ -79,27 +77,26 @@ def with_kafka_vars(func):
 @with_kafka_vars
 async def write_to_kafka_async(kv, topic: str, message_generator: iter):
     """
-    Asynchronously write messages to a Kafka topic using a generator.
+    Publish messages to a Kafka topic using an asynchronous message generator.
 
     Parameters
     ----------
     kv : SimpleNamespace
-        Injected via decorator; contains Kafka producer/admin instances.
+        Injected by @with_kafka_vars. Contains:
+        - kafka_bootstrap_servers : str
+        - kafka : KafkaAdmin
+        - producer : KafkaProducer
     topic : str
-        Kafka topic to publish messages to.
-    message_generator : async iterator
-        Yields event dictionaries to publish to Kafka.
+        Name of the Kafka topic to write to.
+    message_generator : AsyncIterator[dict]
+        Asynchronous iterator that yields message dictionaries.
 
     Notes
     -----
-    - Messages are serialized as JSON
-    - Producer is flushed and closed automatically
-    - `await asyncio.sleep(0)` yields control back to the event loop
-
-    Example
-    -------
-    >>> async for event in generate_clickstream_async(100):
-    ...     await write_to_kafka_async("clickstream", event)
+    - Messages are serialized as JSON using the configured `KafkaProducer`.
+    - Each iteration awaits briefly (sleep(0)) to yield control to the event loop.
+    - The Kafka producer is flushed and closed when the coroutine completes.
+      (Avoid using the same producer instance across multiple concurrent writers.)
     """
     try:
         async for message in message_generator:
@@ -122,7 +119,6 @@ def list_kafka_topics(kv):
         A list of topic names.
     """
     topics = kv.kafka.list_topics()
-    print(__name__, topics)
     return topics
 
 
@@ -164,3 +160,40 @@ def close_kafka_admin(kv):
     Useful for manual teardown when not relying on async finalization.
     """
     kv.kafka.close()
+
+@with_kafka_vars
+def clean_reset_kafka_topics(kv,topicnames: list[str]|None=None):
+    """
+    Delete and recreate specified Kafka topics.
+    Deletes ALL topics if topicnames is empty
+
+    Parameters
+    ----------
+    topics : list[str]
+        List of topic names to reset.
+    """
+    if not topicnames:
+        topics = list_kafka_topics()
+    else:
+        topics = topicnames
+
+    if len(topics) > 0:
+        print("Resetting kafka topics...")
+        for topic in topics:
+            print(f"Deleting topic {topic}")
+            delete_kafka_topic(topic)
+
+        for _ in range(10):  # up to ~10 seconds
+            time.sleep(1)
+            remaining = list_kafka_topics()
+            if not any(t in topics for t in remaining):
+                break
+            else:
+                print(f"Topics still pending deletion, continuing anyway ({_})...")
+
+    if topicnames:
+        for topicname in topicnames:
+            print(f"Creating Kafka topic {topicname}...")  
+            create_kafka_topic(topicname)
+        close_kafka_admin()
+        print("Kafka topics reset complete.")
