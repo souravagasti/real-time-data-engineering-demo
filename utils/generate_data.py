@@ -74,21 +74,12 @@ async def generate_nyctaxistream_async(num_events: int = 1, latency: float = 0.1
     """
     Asynchronously generate synthetic NYC taxi trip events.
 
-    Each event mimics real NYC TLC trip records including dispatch, pickup,
-    dropoff times, locations, and trip metrics. Useful for streaming pipelines,
-    join demos, watermarking tests, and schema evolution workloads.
-
     Event fields include:
     - hvfhs_license_num: Provider license identifier
     - dispatching_base_num: Fleet/base that dispatched the trip
-    - originating_base_num: Base where trip originated
-    - request_datetime: Time passenger requested a ride
-    - on_scene_datetime: Time driver reached pickup
     - pickup_datetime: Actual pickup timestamp
     - dropoff_datetime: Actual dropoff timestamp
-    - PULocationID / DOLocationID: Zone identifiers (1–264)
-    - trip_miles: Distance traveled
-    - trip_time: Duration in seconds
+    - PULocationID / DOLocationID: Zone identifiers (1--264)
 
     Parameters
     ----------
@@ -117,56 +108,49 @@ async def generate_nyctaxistream_async(num_events: int = 1, latency: float = 0.1
     from pyspark.sql.functions import to_timestamp
 
     try:
-        hvfhs_license_num = vars.get("hvfhs_license_num", ["HV" + str(i).zfill(5) for i in range(10)])
-        dispatching_base_num = vars.get("dispatching_base_num", ['B03404', 'B03406', 'B02510', 'B02764', 'B03288'])
-        originating_base_num = vars.get("originating_base_num", ['B03404', 'B03406', 'B02510', 'B02764', None])
-        PULocationID = vars.get("PULocationID", list(range(1, 265)))
-        DOLocationID = vars.get("DOLocationID", list(range(1, 265)))
-        trip_miles = vars.get("trip_miles", [round(random.uniform(0.1, 30.0), 2) for _ in range(10)])
-        trip_time = vars.get("trip_time", [random.randint(60, 7200) for _ in range(10)])
-        request_datetime = vars.get("request_datetime", [(datetime(2025, 1, 1) + timedelta(seconds=random.randint(0, 86400))) for _ in range(10)])
-        on_scene_datetime = vars.get("on_scene_datetime", [req + timedelta(seconds=random.randint(0, 1800)) for req in request_datetime])
-        pickup_datetime = vars.get("pickup_datetime", [onscene + timedelta(seconds=random.randint(0, 1800)) for onscene in on_scene_datetime])
-        dropoff_datetime = vars.get("dropoff_datetime", [pickup + timedelta(seconds=random.randint(60, 7200)) for pickup in pickup_datetime])
+        # print(f"number of events: {num_events} and latency: {latency}")
+        for _ in range(num_events):
+            hvfhs_license_num = vars.get("hvfhs_license_num", "HV" + str(random.randint(1,9)).zfill(5))
+            dispatching_base_num = vars.get("dispatching_base_num", random.choice(['B03404', 'B03406', 'B02510', 'B02764', 'B03288']))
+            PULocationID = vars.get("PULocationID", random.randint(1,265))
+            DOLocationID = vars.get("DOLocationID", random.randint(1,265))
+            pickup_datetime_random_dt = datetime(2025, 1, 1) + timedelta(seconds=random.randint(0, 1800))
+            pickup_datetime = vars.get("pickup_datetime",pickup_datetime_random_dt.strftime("%Y-%m-%d %H:%M:%S"))
+            dropoff_datetime_random_dt = pickup_datetime_random_dt + timedelta(seconds=random.randint(0, 1800))
+            dropoff_datetime = vars.get("dropoff_datetime",dropoff_datetime_random_dt.strftime("%Y-%m-%d %H:%M:%S"))
+            event = {
+                "hvfhs_license_num":hvfhs_license_num,
+                "dispatching_base_num":dispatching_base_num,
+                "PULocationID":PULocationID,
+                "DOLocationID":DOLocationID,
+                "pickup_datetime":pickup_datetime,
+                "dropoff_datetime":dropoff_datetime,
 
+            }
+            yield event
+            await asyncio.sleep(latency)
+    
     except Exception as e:
         raise e
-    
-    for _ in range(num_events):
-        event = {
-            "hvfhs_license_num": random.choice(hvfhs_license_num),
-            "dispatching_base_num": random.choice(dispatching_base_num),
-            "originating_base_num": random.choice(originating_base_num),
-            "request_datetime": random.choice(request_datetime).strftime('%Y-%m-%d %H:%M:%S'),
-            "on_scene_datetime": random.choice(on_scene_datetime).strftime('%Y-%m-%d %H:%M:%S'),
-            "pickup_datetime": random.choice(pickup_datetime).strftime('%Y-%m-%d %H:%M:%S'),
-            "dropoff_datetime": random.choice(dropoff_datetime).strftime('%Y-%m-%d %H:%M:%S'),
-            "PULocationID": random.choice(PULocationID),
-            "DOLocationID": random.choice(DOLocationID),
-            "trip_miles": round(random.choice(trip_miles), 2),
-            "trip_time": random.choice(trip_time)
-        }
-        yield event
-        await asyncio.sleep(latency)
 
-async def generate_locationid_temperature_async(num_events: int = 1, latency: float = 0.1, **vars):
+async def generate_locationid_temperature_async(num_events: int = 1, latency: float = 0.5, **vars):
+
+    # for the location id passed, generate an event every minute of the days passed (1 per minute)
 
     import random, asyncio
     from datetime import datetime, timedelta
 
     try:
-        locationId = vars.get("locationId",list(range(1,265)))
-        temperature = vars.get("temperature",list(range(10,30)))
-        record_datetime = vars.get("record_datetime",[datetime(2025,1,1) + timedelta(seconds = random.randint(0,86400)) for _ in range(10)])
+        for _ in range(1000):
+            event = {
+                "locationId":vars.get("locationId",random.randint(1,265)),
+                "temperature": vars.get("temperature",round(random.uniform(10,30),2)),
+                "record_datetime": vars.get("record_datetime",datetime(2025,1,1) + timedelta(seconds = random.randint(0,86400)))
+            }
+
+            yield event
+            await asyncio.sleep(latency)
     except Exception as e:
         raise e
-    
-    for _ in range(num_events):
-        event = {
-            "locationId": random.choice(locationId),
-            "temperature": random.choice(temperature),
-            "record_datetime": random.choice(record_datetime).strftime('%Y-%m-%d %H:%M:%S')
-        }
+
         
-        yield event
-        await asyncio.sleep(latency)

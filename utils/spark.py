@@ -116,7 +116,7 @@ def start_spark_session() -> SparkSession:
 
 
 @with_spark_vars
-def read_from_kafka(
+def read_kafka(
         sv,
         spark: SparkSession,
         topic: str,
@@ -155,16 +155,16 @@ def read_from_kafka(
         .load()
     )
 
-    parsed_df = (
+    df = (
         raw_df.selectExpr("CAST(value AS STRING) AS json_str")
         .select(from_json(col("json_str"), schema).alias("data"))
         .select("data.*")
     )
 
-    return parsed_df
+    return df
 
 def write_spark_stream(
-    parsed_df: DataFrame,
+    df: DataFrame,
     spark: SparkSession,
     topic: str,
     write_to: str = "memory",
@@ -179,8 +179,8 @@ def write_spark_stream(
 
     Parameters
     ----------
-    parsed_df : DataFrame
-        The streaming DataFrame returned from read_from_kafka()
+    df : DataFrame
+        Streaming DataFrame
     spark : SparkSession
         Active Spark session
     topic : str
@@ -222,7 +222,7 @@ def write_spark_stream(
         write_to = "console" if trigger_mode == "continuous" else write_to
 
         return (
-            parsed_df.writeStream
+            df.writeStream
             .format(write_to)
             .queryName(topic)
             .outputMode("append")
@@ -240,17 +240,28 @@ def write_spark_stream(
         # Delta merge mode using foreachBatch
         if write_to == "delta" and merge_keys:
             delta_table = DeltaTable.forPath(spark, os.path.abspath(output_path))
-
             table_cols = spark.read.format("delta").load(output_path).columns
-            df_cols = parsed_df.columns
+            df_cols = df.columns
 
             # Add missing columns so merge doesn't fail
             missing_cols = set(table_cols) - set(df_cols)
             for col_name in missing_cols:
-                parsed_df = parsed_df.withColumn(col_name, lit(None))
+                df = df.withColumn(col_name, lit(None))
 
             def merge_batch(df: DataFrame, epoch_id: int):
-                print("🔥 MERGE BATCH CALLED. ROWS:", df.count(), " EPOCH:", epoch_id)
+                
+                # (
+                # df.writeStream
+                # .format("console")
+                # # .outputMode("append") # or "update" or "complete"
+                # .start()
+                # # .awaitTermination()
+                # # .foreachBatch(merge_batch)
+                # # .option("checkpointLocation", checkpoint_location)
+                # # .trigger(**trigger)
+                # # .start()
+                # )
+                print(f"Number of records passed to foreachbatch - {df.count()}")
                 try:
                     merge_condition = " AND ".join([f"target.{k}=source.{k}" for k in merge_keys])
 
@@ -260,12 +271,14 @@ def write_spark_stream(
                         .whenNotMatchedInsertAll()
                         .execute()
                     )
+                    print(f"MERGED BATCH {epoch_id}. ROWS: {df.count()}")
+
                 except Exception as e:
-                    print("❌ foreachBatch FAILED:", e)
-                    raise e  # <-- THIS forces Spark to crash the query
+                    print("foreachBatch FAILED:", e)
+                    raise e  # <-- avoid silent errors
 
             query = (
-                parsed_df.writeStream
+                df.writeStream
                 .foreachBatch(merge_batch)
                 .option("checkpointLocation", checkpoint_location)
                 .trigger(**trigger)
@@ -276,7 +289,7 @@ def write_spark_stream(
 
         # Normal parquet/delta write
         return (
-            parsed_df.writeStream
+            df.writeStream
             .format(write_to)
             .option("checkpointLocation", checkpoint_location)
             .outputMode(output_mode)
